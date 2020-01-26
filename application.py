@@ -14,11 +14,12 @@ quiz_result = """{
         
         ]}"""
 
-
-min_score = np.array([0,0,0])
-max_score = np.array([255,255,255])
+min_score = np.array([0, 0, 0])
+max_score = np.array([255, 255, 255])
 
 color_attributes = ["R", "G", "B"]
+
+
 @application.route('/', methods=['POST'])
 def func():
     if request.method == 'POST':
@@ -34,9 +35,10 @@ def get_recomendations(input):
     colors = pd.read_csv(excelFile)
     feedback = np.array(data['colors'])
 
-    mean = np.mean(feedback, axis=0)
+    raw_mean = np.mean(feedback, axis=0)
+    mean = (raw_mean - min_score) / (max_score - min_score)
+    color_list = get_colors(colors)
 
-    color_list=get_colors(colors)
     def get_similarity(id):
         result_vector = mean
         vec1 = result_vector
@@ -46,11 +48,10 @@ def get_recomendations(input):
 
     color_list['score'] = color_list.hex.apply(get_similarity)
     sorted = color_list.sort_values(by='score', ascending=0).reset_index(drop=True)
-    recommendation = (sorted[['s_color', 'hex','score']].head())
+    recommendation = (sorted[['s_color', 'hex', 'score']].head())
     rec = np.array(recommendation).tolist()
     print(rec)
     result_data = {
-
 
         "Name": data['name'],
         "Type": "KBR",
@@ -58,6 +59,7 @@ def get_recomendations(input):
     }
 
     return result_data
+
 
 def cosine_similarity(v1, v2):
     "compute cosine similarity of v1 to v2: (v1 dot v2)/{||v1||*||v2||)"
@@ -70,11 +72,12 @@ def cosine_similarity(v1, v2):
         sumxy += x * y
     return sumxy / math.sqrt(sumxx * sumyy)
 
-def get_colors(wines):
+
+def get_colors(clr):
     i = 0
     for attribute in color_attributes:
-        wines[attribute] = pd.to_numeric(wines[attribute])
-        x = wines[attribute].values.reshape(-1, 1)
+        clr[attribute] = pd.to_numeric(clr[attribute])
+        x = clr[attribute].values.reshape(-1, 1)
         min_vec = np.empty(x.size)
         l = min_score.item(i)
         h = max_score.item(i)
@@ -82,14 +85,16 @@ def get_colors(wines):
         max_vec = np.empty(x.size)
         max_vec.fill(h)
         x_scaled = (x - min_vec) / (max_vec - min_vec)
-        wines[attribute] = pd.Series(x_scaled[:, 0])
+        clr[attribute] = pd.Series(x_scaled[:, 0])
         i += 1
-    return wines
+    return clr
 
-def get_color_vectors(id, wines, wine_attrs):
-    wine = wines[wines['hex'] == id]
-    wine_vector = np.array(wine[wine_attrs].values.tolist()).flatten()
-    return wine_vector
+
+def get_color_vectors(id, clr, clr_attrs):
+    wine = clr[clr['hex'] == id]
+    clr_vector = np.array(wine[clr_attrs].values.tolist()).flatten()
+    return clr_vector
+
 
 if __name__ == "__main__":
     application.run(debug=True)
